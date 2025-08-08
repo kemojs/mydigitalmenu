@@ -1,0 +1,210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite doesn't support enums, so we'll use string fields with validation in the app
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("RESTAURANT_OWNER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Stripe Integration
+  stripeCustomerId      String? @unique
+  stripeSubscriptionId  String? @unique
+  subscriptionStatus    String?
+  currentPeriodEnd      DateTime?
+
+  // Relations
+  restaurant Restaurant?
+
+  @@map("users")
+}
+
+model Restaurant {
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  description    String?
+  address        String?
+  phone          String?
+  email          String?
+  website        String?
+  logo           String?
+  primaryColor   String?   @default("#FF6B35")
+  secondaryColor String?   @default("#2D5A27")
+  template       String    @default("modern")
+  qrCodeStyle    String    @default("square")
+  isActive       Boolean   @default(true)
+  plan           String    @default("STARTER")
+  planExpiresAt  DateTime?
+  betaExpiresAt  DateTime?
+  isBetaUser     Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Foreign Keys
+  ownerId String @unique
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Relations
+  menus     Menu[]
+  analytics Analytics[]
+
+  @@map("restaurants")
+}
+
+model Menu {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  languages   String   @default("de")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign Keys
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  // Relations
+  categories Category[]
+  items      MenuItem[]
+
+  @@map("menus")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign Keys
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  // Relations
+  items MenuItem[]
+
+  @@map("categories")
+}
+
+model MenuItem {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  price            Float
+  currency         String   @default("EUR")
+  image            String?
+  allergens        String   @default("")
+  nutritionalInfo  String?
+  isAvailable      Boolean  @default(true)
+  isVegetarian     Boolean  @default(false)
+  isVegan          Boolean  @default(false)
+  isGlutenFree     Boolean  @default(false)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Foreign Keys
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  menuId     String
+  menu       Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  // Relations
+  translations MenuItemTranslation[]
+
+  @@map("menu_items")
+}
+
+model MenuItemTranslation {
+  id          String  @id @default(cuid())
+  language    String
+  name        String
+  description String?
+
+  // Foreign Keys
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, language])
+  @@map("menu_item_translations")
+}
+
+model Analytics {
+  id           String            @id @default(cuid())
+  date         DateTime          @default(now())
+  views        Int               @default(0)
+  uniqueViews  Int               @default(0)
+  deviceTypes  String            @default("{}")
+  browsers     String            @default("{}")
+  locations    String            @default("{}")
+  popularItems String            @default("{}")
+  peakHours    String            @default("{}")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  // Foreign Keys
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, date])
+  @@map("analytics")
+}
+
+model Template {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String
+  thumbnail     String
+  category      String
+  features      String   @default("")
+  customizations String  @default("{}")
+  isActive      Boolean  @default(true)
+  isPremium     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("templates")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model Upload {
+  id        String   @id @default(cuid())
+  filename  String
+  originalName String
+  mimetype  String
+  size      Int
+  path      String
+  url       String
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@map("uploads")
+}
